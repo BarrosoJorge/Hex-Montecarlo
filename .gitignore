@@ -1,0 +1,5 @@
+# Ejecutable compilado
+hex_game
+
+# Archivos objeto de compilación
+*.o
