@@ -1,65 +1,63 @@
 #include "player.h"
-#include "utils.h"  // Necesitaremos la función de parseo
-#include <stdio.h>   // Para printf, fgets
-#include <string.h>  // Para strcspn (para quitar saltos de línea)
-#include <unistd.h> // Asegúrate de tener este include en player.c para sleep()
+#include "../Rules/rules.h"
+#include "../pcg_basic.h"
 
+// Simula un juego a partir de la posicion actual del tablero
+char game_sim(const char* board, int size, char player) {
+    char bcopy[MAX_BOARD_SIZE];
 
+    // Copia local del tablero
+    for(int i = 0; i < (size * size); i++) bcopy[i] = board[i];
 
-int get_human_move(const Board* board, char player_symbol) {
-    char buffer[32]; // Un buffer para leer la entrada del usuario
-    int indice = -1;
+    char turn = player;
+    char out;
+    int move;
 
-    // Bucle infinito hasta que el usuario dé una entrada válida
-    while (1) {
-        printf("Turno de %c. Introduce jugada (ej. C4): ", player_symbol);
-        
-        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
-            // Manejar error de entrada (ej. EOF)
-            continue; 
-        }
+    while(1) {
+        move = pcg32_boundedrand(size * size);
+        if(bcopy[move] != '+') continue;
 
-        // Quitar el salto de línea ('\n') que fgets captura
-        buffer[strcspn(buffer, "\n")] = 0;
+        bcopy[move] = turn;
+        out = board_test(bcopy, size);
+        if(out != '+') return out;
 
-        // Llamar a nuestra nueva función de 'utils' para validar
-        indice = parse_and_validate_move(board, buffer);
-
-        if (indice == -1) {
-            printf("Error: Formato inválido. Usa LetraNumero (ej. A1, C4, G7).\n");
-        } else if (indice == -2) {
-            printf("Error: Casilla (%s) ya está ocupada. Elige otra.\n", buffer);
-        } else {
-            break; 
-        }
+        turn = (turn == 'X') ? 'O' : 'X';
     }
-    
-    return indice;
+    return '+';
 }
 
+void game_stats(const char* board, int size, char player, int64_t nsim, int64_t* stat) {
+    char bcopy[MAX_BOARD_SIZE];
 
+    // Copia local del tablero
+    for(int i = 0; i < (size * size); i++) bcopy[i] = board[i];
 
-int get_ai_move_montecarlo(const Board* board, char player_symbol) {
-    
-    // 1. Simular que "piensa" (mejora la experiencia)
-    printf("IA (%c) está pensando...\n", player_symbol);
-    sleep(1); // Pausa de 1 segundo
+    // Inicializacion 
+    for(int i = 0; i < (size * size); i++) stat[i] = 0;
 
-    // 2. Encontrar el primer movimiento (tu lógica)
-    int board_total_size = board->size * board->size;
-    for (int i = 0; i < board_total_size; i++) {
-        
-        // Usamos tu comprobación, que es correcta
-        if (board->squares[i].color == 0) { 
-            
-            // 3. Anunciar el movimiento (mejora la experiencia)
-            int x, y;
-            to_xy(board->size, i, &x, &y);
-            printf("IA (%c) ha elegido: %c%d\n", player_symbol, 'A' + x, y + 1);
+    // Elegimos donde jugar
+    char out;
+    char other = (player == 'X') ? 'O' : 'X';
 
-            return i; // Devolver el primer índice vacío
+    for(int64_t n = 0; n < nsim; n++) { 
+        for(int k = 0; k < (size * size); k++) {
+            if(bcopy[k] != '+') continue;
+
+            bcopy[k] = player;
+            out = game_sim(bcopy, size, other);
+            bcopy[k] = '+';
+
+            if(out == player) stat[k] ++;
+            else stat[k] --;
         }
     }
+}
 
-    return -1; // No hay movimientos (tablero lleno)
+int game_move(int64_t* stats, const char* board, int size) {
+    int best = -1;
+    for(int i = 0; i < (size * size); i++) {
+        if(board[i] != '+') continue;
+        if((best == -1) || (stats[i] > stats[best])) best = i;
+    }
+    return best;
 }

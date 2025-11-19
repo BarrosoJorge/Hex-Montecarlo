@@ -1,14 +1,12 @@
 #ifndef RULES_H
 #define RULES_H
 
-#include "board.h" 
+#include "../Board/board.h" 
 
-
-int board_status(const char* board, int size);
-
-int  board_test_x(const char* board, int size);
-
-int  board_test_o(const char* board, int size);
+// Logica de victoria
+int board_test_x(const char* board, int size);
+int board_test_o(const char* board, int size);
+char board_test(const char* board, int size);
 
 
 #endif //RULES_H

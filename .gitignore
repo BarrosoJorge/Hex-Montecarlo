@@ -1,0 +1,17 @@
+# Archivos de compilación
+*.o
+*.out
+*.exe
+hex
+
+# Archivos de depuración
+*.log
+*.tmp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de tu editor
+.vscode/
+*.swp

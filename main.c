@@ -1,102 +1,210 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "board.h"   // Para Board, board_init, board_print, actualizar_square
-#include "player.h"  // Para Player, get_human_move, get_ai_move...
-#include "rules.h"   // ¡NUEVO! Para board_status
+#include <stdint.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <string.h>
 
-int main() {
+// Includes locales
+#include "pcg_basic.h"
+#include "Board/board.h"
+#include "Board/square.h"
+#include "Player/player.h"
+#include "Rules/rules.h"
+#include "Utils/utils.h"
 
-    int board_size = 7; // Define el tamaño del tablero
-    Board board;
-    board_init(&board, board_size);
+#define MAX_PROC 32
+#define BUFLEN 128
+#define R 0
+#define W 1
 
-    // --- 1. Inicializar Jugadores ---
-    Player p1 = {'X', 1, get_human_move}; 
-    Player p2 = {'O', 2, get_ai_move_montecarlo};
+typedef struct {
+    int fda[2];
+    int fdb[2];
+} pipe_t;
 
-    printf("--- ¡Bienvenido a Hex! ---\n");
-    printf("Jugador 1: %c (Humano)\n", p1.simbolo);
-    printf("Jugador 2: %c (IA)\n", p2.simbolo);
-    printf("---------------------------\n");
+void print_help() {
+    printf("Usage: hex <nproc> <nsim> <player> <bsize>\n");
+    printf("nproc: Number of processes to run.\n");
+    printf("nsim: Number of simulations per hex.\n");
+    printf("player: Can be \'X\' or \'O\'\n");
+    exit(1);
+}
 
+void error_msg(const char* msg) {
+    fprintf(stderr, "Error: %s\n", msg);
+    exit(2);
+}
 
-    // --- 2. Fase de Inicio (Sin Regla de Intercambio) ---
+int main(int argc, char** argv) {
+    if(argc != 5) print_help();
 
-    // TURNO 1: P1 (Humano)
-    board_print(&board);
-    printf("\n--- Turno de %c (Primer Movimiento) ---\n", p1.simbolo);
-    int first_move_idx = p1.get_move(&board, p1.simbolo);
-    actualizar_square(&board.squares[first_move_idx], p1.simbolo, p1.color);
+    int nproc = atoi(argv[1]);
+    if(nproc < 1 || nproc > MAX_PROC) {
+        error_msg("Wrong number of processes");
+    }
 
-    // TURNO 2: P2 (IA)
-    board_print(&board);
-    printf("\n--- Turno de %c (IA) ---\n", p2.simbolo);
+    int64_t nsim = atoll(argv[2]);
+    if(nsim < 1) error_msg("Wrong number of simulations");
+
+    char player = argv[3][0];
+    if(player != 'O' && player != 'X') error_msg("Wrong player");
     
-    // Como la IA no intercambia, simplemente hace su primer movimiento
-    printf("IA (%c) decide NO intercambiar.\n", p2.simbolo);
-    int ai_first_move_idx = p2.get_move(&board, p2.simbolo);
-    actualizar_square(&board.squares[ai_first_move_idx], p2.simbolo, p2.color);
+    // El oponente es quien no eres tú
+    char oponent = (player == 'X') ? 'O' : 'X';
 
-    // El siguiente turno es de P1 (Humano)
-    Player* current_player = &p1;
-    printf("\n--- Comienza el juego regular ---\n");
+    int size = atoi(argv[4]);
+    if(size < 3 || size > MAX_BOARD_SIDE) error_msg("Wrong board size");
 
+    // PRNG INITIALIZATION
+    pcg32_srandom(time(0), getpid());
+    
+    int64_t stats[MAX_BOARD_SIZE];
+    int64_t stmp[MAX_BOARD_SIZE];
+    char board[MAX_BOARD_SIZE];
 
-    // --- 3. Bucle Principal del Juego ---
-    while (1) {
+    // PIPES
+    pipe_t pipels[MAX_PROC];
+    for(int i = 0; i < nproc; i++) {
+        if(pipe(pipels[i].fda) == -1 || pipe(pipels[i].fdb) == -1)
+             error_msg("Failed to create pipes");
+    }
+
+    // PROCESSES
+    pid_t procls[MAX_PROC];
+    int rank = 0;
+    for(int i = 0; i < nproc; i++) {
+        procls[i] = fork();
+        if (procls[i] < 0) error_msg("Fork failed");
         
-        // Mostrar el tablero actual
-        board_print(&board);
-        printf("\n--- Turno de %c ---\n", current_player->simbolo);
-
-
-        int move_indice = current_player->get_move(&board, current_player->simbolo);
-        if (move_indice == -1) {
-             printf("¡Tablero lleno! (Esto no debería pasar en Hex)\n");
-             break;
-        }
-
-        actualizar_square(&board.squares[move_indice], current_player->simbolo, current_player->color);
-
-        
-        // --- Comprobar si hay Ganador ---
-
-
-        char flat_board[MAX_BOARD_SIZE];
-        for (int i = 0; i < board.size * board.size; i++) {
-            flat_board[i] = board.squares[i].simbolo;
-        }
-
-        // 2. Comprobar SOLO al jugador actual
-        int ha_ganado = 0;
-        if (current_player->simbolo == p1.simbolo) { // p1 es 'X'
-            ha_ganado = board_test_x(flat_board, board_size);
-        } else { // El jugador actual es 'O'
-            ha_ganado = board_test_o(flat_board, board_size);
-        }
-        
-        // 3. Reaccionar si hubo un ganador
-        if (ha_ganado) {
-            printf("\n=========================\n");
-            board_print(&board); // Mostrar el tablero final
-            printf("¡¡¡ JUEGO TERMINADO !!!\n");
-            
-            // 'current_player' es quien acaba de ganar
-            printf("   EL GANADOR ES: %c\n", current_player->simbolo); 
-            printf("=========================\n");
-            break; // Salir del bucle 'while(1)'
-        }
-
-        if (current_player->simbolo == p1.simbolo) {
-            current_player = &p2;
-        } else {
-            current_player = &p1;
+        // Child
+        if(procls[i] == 0) {
+            rank = i + 1;
+            break;
         }
     }
 
-    board_destroy(&board);
+    // PROCESO PADRE
+    if(rank == 0) {
+        // Configuracion de pipes
+        for(int i = 0; i < nproc; i++) {
+            close(pipels[i].fda[W]);
+            close(pipels[i].fdb[R]);
+        }
+
+        board_clean(board, size);
+        board_print(board, size);
+        char buffer[BUFLEN];
+        int pos;
+        
+        while(1) {
+            printf("%c: ", player);
+            fflush(stdout);
+            
+            if (!fgets(buffer, BUFLEN, stdin)) break;
+            trim(buffer);
+
+            if(strcmp(buffer, "quit") == 0) break;
+
+            pos = read_move(buffer, size);
+            if(pos < 0) {
+                printf("Movimiento inválido.\n");
+                continue;
+            }
+            if(board[pos] != '+') {
+                printf("Casilla ocupada.\n");
+                continue;
+            }
+
+            // Juego (Movimiento del Usuario)
+            board[pos] = player;
+            board_print(board, size);
+            if(board_test(board, size) == player) {
+                printf("Gana %c!\n", player);
+                break;
+            }
+
+            // SIMULACIÓN PARALELA (Turno IA/Oponente)
+            printf("Pensando...\n");
+            
+            // Write Board --> Children
+            for(int i = 0; i < nproc; i++) {
+                write(pipels[i].fdb[W], board, sizeof(board));
+            }
+            
+            // Read Stats <-- Children
+            for(int i = 0; i < MAX_BOARD_SIZE; i++) stats[i] = 0;
+            for(int i = 0; i < nproc; i++) {
+                read(pipels[i].fda[R], stmp, sizeof(stmp));
+                for(int k = 0; k < (size * size); k++) stats[k] += stmp[k];
+            }    
+
+            // Decisión de la IA
+            pos = game_move(stats, board, size);
+            if (pos != -1) {
+                board[pos] = oponent;
+                printf("IA juega en: ");
+                int px, py;
+                to_xy(size, pos, &px, &py);
+                printf("%c%d\n", 'A' + px, py + 1);
+                
+                board_print(board, size);
+                if(board_test(board, size) == oponent) {
+                    printf("Gana %c (IA)!\n", oponent);
+                    break;
+                }
+            } else {
+                printf("Empate o tablero lleno.\n");
+                break;
+            }
+        }
+
+        // Finalizacion (Matar hijos suavemente)
+        board[0] = 0; // Señal de fin
+        for(int i = 0; i < nproc; i++) {
+            write(pipels[i].fdb[W], board, sizeof(board));
+        }
+
+        for(int i = 0; i < nproc; i++) {
+            waitpid(procls[i], NULL, 0);
+        }
+
+        for(int i = 0; i < nproc; i++) {
+            close(pipels[i].fda[R]);
+            close(pipels[i].fdb[W]);
+        }
+    }
+
+    // PROCESOS HIJOS (Workers)
+    if(rank > 0) {
+        // Configuracion de los pipes
+        for(int i = 0; i < nproc; i++) {
+            if(i == rank - 1) continue;
+            close(pipels[i].fda[R]);
+            close(pipels[i].fda[W]);
+            close(pipels[i].fdb[R]);
+            close(pipels[i].fdb[W]);
+        }
+        // Cerrar extremos no usados del pipe propio
+        close(pipels[rank - 1].fda[R]); 
+        close(pipels[rank - 1].fdb[W]); 
+
+        while(1) {
+            int nread = read(pipels[rank - 1].fdb[R], board, sizeof(board));
+            if (nread <= 0) break; // Pipe roto o EOF
+
+            if(board[0] == 0) {
+                close(pipels[rank - 1].fda[W]);
+                close(pipels[rank - 1].fdb[R]);
+                break;
+            }
+
+            // El proceso hijo calcula simulaciones para el oponente (la IA)
+            game_stats(board, size, oponent, nsim, stmp); // Usamos stmp local
+            write(pipels[rank - 1].fda[W], stmp, sizeof(stmp));
+        }
+    }
+
     return 0;
 }
-
-//compile with: gcc -o hex_game main.c Board/board.c Board/square.c Board/Hex.c utils/utils.c Rules/temp.c -I./Board -I./utils -I./Rules
-//run with: ./hex_game
