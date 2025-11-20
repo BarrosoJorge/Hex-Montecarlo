@@ -1,0 +1,27 @@
+Proyecto final Programacion en paralelo:
+
+Programar Hex (parecido al go)
+
+Adicionalmente implementar tablero visual
+
+Reglas y especificaciones
+
+1. Usar procesos
+2. Implementar busqueda de soluciones utilizando el metodo de montecarlo
+3. Aplicar algoritmos para
+	- Busqueda de ganadores
+
+Reglas del juego
+
+1. Cada color debe de llegar a su lado 
+
+(Intentar anadir solucion por redes neuronales)
+
+Librerias utiles para interfaz grafica
+
+1. Legro 
+2. Raidlid
+3. gfx 
+
+
+

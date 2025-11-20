@@ -1,0 +1,21 @@
+# --- Ejecutables ---
+hex_game
+*.exe
+*.out
+
+# --- Archivos Objeto (Intermedios de compilación) ---
+*.o
+Board/*.o
+Player/*.o
+Rules/*.o
+utils/*.o
+Processes/*.o
+
+# --- Sistema Operativo ---
+.DS_Store
+Thumbs.db
+
+# --- Editores de Código ---
+.vscode/
+*.swp
+*~

@@ -16,20 +16,6 @@ typedef struct{
     
 } Board;
 
-
-
-
-// void board_init(board_t* board, int size);
-// void board_destroy(board_t* board);
-
-//probablemente se mueva a otro archivo
-// typedef enum{ //Top/Middle/Bottom +  Rigth/Left 
-//     TL, TR,
-//     ML, MR,
-//     BL, BR
-// } dir_t;
-
-
 void board_print(const Board* board);
 
 void board_init(Board* board, int size);

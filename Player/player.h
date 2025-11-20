@@ -1,6 +1,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 
+#include <stdint.h> // Necesario para int64_t
 #include "board.h" 
 
 
@@ -8,8 +9,6 @@
 // "Un puntero a una función que devuelve un 'int' (el índice)
 // y acepta un 'const Board*' y un 'char' (símbolo)".
 typedef int (*get_move_callback_t)(const Board* board, char player_symbol);
-
-
 
 typedef struct {
     char simbolo; // 'X' o 'O'
@@ -22,8 +21,12 @@ typedef struct {
 
 
 int get_human_move(const Board* board, char player_symbol);
-
+// Esta función ahora será la "coordinadora" de Montecarlo
 int get_ai_move_montecarlo(const Board* board, char player_symbol);
 
+char game_sim(const char* board, int size, char player);
 
+void game_stats(const char* board, int size, char player, int64_t nsim, int64_t* stat);
+
+int game_move(int64_t* stats, const char* board, int size);
 #endif //PLAYER_H

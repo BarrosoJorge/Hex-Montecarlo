@@ -43,3 +43,14 @@ int parse_and_validate_move(const Board* board, const char* input_str) {
     // ¡Éxito!
     return indice;
 }
+
+void convert_board_to_char(const Board* src, char* dest) {
+    // Calculamos el total de casillas una sola vez
+    int total_squares = src->size * src->size;
+
+    // Copiamos SOLO el símbolo de cada casilla
+    for (int i = 0; i < total_squares; i++) {
+        // Accedemos al array de squares del struct y sacamos el char
+        dest[i] = src->squares[i].simbolo;
+    }
+}
