@@ -25,3 +25,15 @@ Librerias utiles para interfaz grafica
 
 
 
+Agregas:
+
+1. Menu de inicio
+	Jugar y configurar
+	-Dentro de configurar
+		-Que color va a ser el jugardor
+		-Que dificultad (Numero de simulaciones)
+
+2. Cambiar color de blanco a azul de la ia
+
+3. Agregar que se adapte a la pantalla completa
+

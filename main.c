@@ -4,9 +4,10 @@
 #include "board.h"
 #include "player.h"
 #include "rules.h"
-#include "Processes/process_manager.h" // Módulo que gestiona la paralelizacion
+#include "Processes/process_manager.h"
+#include "Gui/gui.h" // <--- INCLUIMOS EL MÓDULO GRÁFICO
 
-//Funciones de Ayuda 
+// --- Funciones de Ayuda ---
 
 void print_help() {
     printf("Uso: ./hex_game <tamano_tablero> <num_procesos> <num_simulaciones>\n");
@@ -21,138 +22,128 @@ void error_msg(const char* msg) {
     exit(2);
 }
 
-//  Main 
+// --- Wrapper para conectar Player con GUI ---
+// Esta función adapta la firma de 'get_move_callback_t' a 'gui_get_human_move'
+int get_human_move_gui_wrapper(const Board* board, char player_symbol) {
+    // Actualizamos el título de la ventana para avisar al jugador
+    char msg[64];
+    sprintf(msg, "Turno de %c (Tu Turno) - Haz click en una casilla", player_symbol);
+    gui_set_status(msg);
+    
+    // Llamamos a la función gráfica que espera el click
+    return gui_get_human_move(board);
+}
+
+// --- Main ---
 
 int main(int argc, char** argv) {
-    //  0. Validación y Parseo de Argumentos 
-    if (argc != 4) {
-        print_help();
-    }
+    // --- 0. Validación y Parseo de Argumentos ---
+    if (argc != 4) print_help();
 
     int board_size = atoi(argv[1]);
-    if (board_size < 3 || board_size > MAX_BOARD_SIDE) {
-        error_msg("Tamano de tablero invalido (debe ser entre 3 y 26).");
-    }
+    if (board_size < 3 || board_size > MAX_BOARD_SIDE) error_msg("Tamano invalido.");
 
     int num_procs = atoi(argv[2]);
-    if (num_procs < 1) {
-        error_msg("El numero de procesos debe ser al menos 1.");
-    }
+    if (num_procs < 1) error_msg("Procesos debe ser >= 1.");
 
-    int64_t num_sims = atoll(argv[3]); // atoll para leer enteros largos (long long)
-    if (num_sims < 1) {
-        error_msg("El numero de simulaciones debe ser positivo.");
-    }
+    int64_t num_sims = atoll(argv[3]);
+    if (num_sims < 1) error_msg("Simulaciones debe ser positivo.");
 
-    printf("Configuración: Tablero %dx%d | Procesos: %d | Sims/Proc: %ld\n", 
-            board_size, board_size, num_procs, num_sims);
+    printf("Config: Tablero %d | Proc %d | Sims %ld\n", board_size, num_procs, num_sims);
 
-
-    //  1. Inicialización del Sistema 
+    // --- 1. Inicialización ---
     
-    // INICIALIZAR PROCESOS: Crea los hijos y los pipes antes de que empiece el juego.
-    // Los hijos se quedarán en un bucle infinito esperando órdenes.
+    // Iniciar Procesos (Backend)
     processes_init(num_procs, num_sims);
+
+    // Iniciar Gráficos (Frontend)
+    gui_init(0, "Hex Game - Montecarlo Paralelo");
 
     Board board;
     board_init(&board, board_size);
 
-    // Inicializar Jugadores
-    // P1: Humano
-    // P2: IA (Internamente, get_ai_move_montecarlo usará el Process Manager)
-    Player p1 = {'X', 1, get_human_move}; 
+    // Configurar Jugadores
+    // P1 usa el wrapper gráfico, P2 usa la IA Montecarlo
+    Player p1 = {'X', 1, get_human_move_gui_wrapper}; 
     Player p2 = {'O', 2, get_ai_move_montecarlo};
 
-    printf("--- ¡Bienvenido a Hex Paralelo! ---\n");
-    printf("Jugador 1: %c (Humano)\n", p1.simbolo);
-    printf("Jugador 2: %c (IA Montecarlo)\n", p2.simbolo);
-    printf("---------------------------\n");
+    // --- 2. Fase de Inicio ---
 
+    // Turno P1 (Humano)
+    gui_draw(&board);
+    int first_move = p1.get_move(&board, p1.simbolo);
+    if (first_move == -1) goto cleanup; // Si cerró la ventana
+    actualizar_square(&board.squares[first_move], p1.simbolo, p1.color);
 
-    //  2. Fase de Inicio (Primeros Movimientos) 
-
-    // TURNO 1: P1 (Humano)
-    board_print(&board);
-    printf("\n--- Turno de %c (Primer Movimiento) ---\n", p1.simbolo);
-    int first_move_idx = p1.get_move(&board, p1.simbolo);
-    actualizar_square(&board.squares[first_move_idx], p1.simbolo, p1.color);
-
-    // TURNO 2: P2 (IA)
-    board_print(&board);
-    printf("\n--- Turno de %c (IA) ---\n", p2.simbolo);
+    // Turno P2 (IA)
+    gui_draw(&board);
+    gui_set_status("Turno de O (IA Pensando...)");
+    gui_process_events(); // Refrescar ventana antes de bloquear
     
-    printf("IA (%c) decide NO intercambiar (Lógica simplificada).\n", p2.simbolo);
-    // Aquí la IA "piensa" usando los procesos que inicializamos arriba
-    int ai_first_move_idx = p2.get_move(&board, p2.simbolo);
-    actualizar_square(&board.squares[ai_first_move_idx], p2.simbolo, p2.color);
+    int ai_move = p2.get_move(&board, p2.simbolo);
+    actualizar_square(&board.squares[ai_move], p2.simbolo, p2.color);
 
-    // El siguiente turno es de P1 (Humano)
     Player* current_player = &p1;
-    printf("\n--- Comienza el juego regular ---\n");
 
-
-    //  3. Bucle Principal del Juego 
+    // --- 3. Bucle Principal ---
     while (1) {
-        
-        // Mostrar el tablero actual
-        board_print(&board);
-        printf("\n--- Turno de %c ---\n", current_player->simbolo);
+        // Actualizar Gráficos
+        gui_draw(&board);
 
-        // Obtener movimiento
-        // Si es humano: pide input.
-        // Si es IA: delega a process_manager -> workers -> pipes.
-        int move_indice = current_player->get_move(&board, current_player->simbolo);
-        
-        if (move_indice == -1) {
-             printf("¡Tablero lleno! (Esto no debería pasar en Hex)\n");
-             break;
-        }
-
-        actualizar_square(&board.squares[move_indice], current_player->simbolo, current_player->color);
-
-        
-        //  Comprobación de Ganador (Optimizada) 
-        
-        // 1. Convertir a flat_board para rules.c
-        char flat_board[MAX_BOARD_SIZE];
-        for (int i = 0; i < board.size * board.size; i++) {
-            flat_board[i] = board.squares[i].simbolo;
-        }
-
-        // 2. Comprobar SOLO al jugador actual
-        int ha_ganado = 0;
-        if (current_player->simbolo == p1.simbolo) { // p1 es 'X'
-            ha_ganado = board_test_x(flat_board, board_size);
-        } else { // El jugador actual es 'O'
-            ha_ganado = board_test_o(flat_board, board_size);
-        }
-        
-        // 3. Reaccionar si hubo un ganador
-        if (ha_ganado) {
-            printf("\n=========================\n");
-            board_print(&board); // Mostrar el tablero final
-            printf("¡¡¡ JUEGO TERMINADO !!!\n");
-            printf("   EL GANADOR ES: %c\n", current_player->simbolo); 
-            printf("=========================\n");
-            break; // Salir del bucle
-        }
-
-        //  Cambiar de Turno 
-        if (current_player->simbolo == p1.simbolo) {
-            current_player = &p2;
+        // Actualizar Estado/Título
+        char status[128];
+        if (current_player->simbolo == 'X') {
+            sprintf(status, "Turno de %c (Humano)", current_player->simbolo);
         } else {
-            current_player = &p1;
+            sprintf(status, "Turno de %c (IA Calculando %ld sims...)", current_player->simbolo, num_sims * num_procs);
+            // Importante: Procesar eventos para que la ventana se pinte antes de que la IA bloquee el proceso
+            gui_process_events();
         }
+        gui_set_status(status);
+
+        // Obtener Movimiento
+        int move_idx = current_player->get_move(&board, current_player->simbolo);
+
+        // Si devuelve -1, significa que se cerró la ventana o error
+        if (move_idx == -1) break;
+
+        // Aplicar Movimiento
+        actualizar_square(&board.squares[move_idx], current_player->simbolo, current_player->color);
+        gui_draw(&board); // Redibujar inmediatamente
+
+        // Checar Ganador
+        char flat_board[MAX_BOARD_SIZE];
+        convert_board_to_char(&board, flat_board); // Usamos la utilidad que ya creamos
+
+        int ha_ganado = 0;
+        if (current_player->simbolo == 'X') ha_ganado = board_test_x(flat_board, board_size);
+        else ha_ganado = board_test_o(flat_board, board_size);
+
+        if (ha_ganado) {
+            gui_draw(&board);
+            char win_msg[64];
+            sprintf(win_msg, "¡GANADOR: JUGADOR %c! (Cierra la ventana para salir)", current_player->simbolo);
+            gui_set_status(win_msg);
+            printf("\n>>> JUEGO TERMINADO. GANADOR: %c <<<\n", current_player->simbolo);
+            
+            // Esperar a que el usuario cierre la ventana
+            while (gui_get_human_move(&board) != -1) {
+                // Bucle infinito visual hasta que cierren la app
+            }
+            break;
+        }
+
+        // Cambiar Turno
+        current_player = (current_player->simbolo == p1.simbolo) ? &p2 : &p1;
     }
 
-    //  4. Limpieza de Recursos 
-    printf("Limpiando procesos y memoria...\n");
-    
-    // Envía la señal de terminación a los procesos hijos y espera a que mueran.
-    processes_cleanup(); 
-    
+cleanup:
+    // --- 4. Limpieza ---
+    printf("Cerrando recursos...\n");
+    gui_close();
+    processes_cleanup();
     board_destroy(&board);
-    
+
     return 0;
 }
 

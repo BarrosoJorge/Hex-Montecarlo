@@ -1,14 +1,19 @@
 # --- Variables de Compilación ---
 CC = gcc
-# Flags: -Wall (Advertencias), -O2 (Optimización para Montecarlo), -g (Para debuggear si falla)
-CFLAGS = -Wall -O2 -g 
-LIBS = -lm
+# --- Variables de Compilación ---
+# Agregamos `sdl2-config --cflags` para los includes de SDL
+CFLAGS = -Wall -O2 -g $(shell sdl2-config --cflags)
 
-# --- Directorios de Cabeceras (.h) ---
-INCLUDES = -I./Board -I./Player -I./Rules -I./utils -I./Processes
+# Agregamos las librerías: -lSDL2 y -lSDL2_gfx
+# `sdl2-config --libs` pone automáticamente las rutas correctas
+LIBS = -lm $(shell sdl2-config --libs) -lSDL2_gfx
 
-# --- Archivos Fuente (.c) ---
-# Listamos explícitamente todos los archivos de tu proyecto actual
+# --- Directorios de Cabeceras ---
+# Agregamos la carpeta Gui
+INCLUDES = -I./Board -I./Player -I./Rules -I./utils -I./Processes -I./Gui
+
+# --- Archivos Fuente ---
+# Agregamos Gui/gui.c
 SRCS = main.c \
        Board/board.c \
        Board/square.c \
@@ -16,7 +21,8 @@ SRCS = main.c \
        Rules/rules.c \
        utils/utils.c \
        utils/pcg_basic.c \
-       Processes/process_manager.c
+       Processes/process_manager.c \
+       Gui/gui.c
 
 # --- Archivos Objeto (.o) ---
 # Convierte la lista de .c en .o automáticamente
