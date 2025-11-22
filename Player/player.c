@@ -7,8 +7,25 @@
 #include <unistd.h> // Asegúrate de tener este include en player.c para sleep()
 #include <process_manager.h> // Para usar procesos
 
-int64_t nsim = 1000; // Hardcoded por ahora
+
 //Revisar
+
+// Algoritmo Fisher-Yates para desordenar un array eficientemente
+void shuffle(int *array, int n) {
+    if (n > 1) {
+        for (int i = 0; i < n - 1; i++) {
+            // Usamos el generador rápido PCG
+            int j = i + pcg32_boundedrand(n - i);
+            int t = array[j];
+            array[j] = array[i];
+            array[i] = t;
+        }
+    }
+}
+
+// Función para Input de Consola (Legacy/Backup)
+// Se mantiene por si alguna vez se necesita probar sin GUI
+
 int get_human_move(const Board* board, char player_symbol) {
     char buffer[32]; // Un buffer para leer la entrada del usuario
     int indice = -1;
@@ -46,74 +63,80 @@ int get_human_move(const Board* board, char player_symbol) {
 // Simula un juego aleatorio (Random Playgout)
 char game_sim(const char* board, int size, char player) {
     char bcopy[MAX_BOARD_SIZE];
-
-    // 1. Copia local rápida (stack)
+    int empty_squares[MAX_BOARD_SIZE];
+    int count = 0;
     int total_squares = size * size;
-    for(int i = 0; i < total_squares; i++) bcopy[i] = board[i];
 
-    char turn = player;
-    int status;
-    int move;
-
-    while(1) {
-        // RNG Rápido (PCG) para elegir casilla
-        move = pcg32_boundedrand(total_squares);
-        
-        // Si está ocupada, intentar otro random
-        if(bcopy[move] != '+') continue;
-
-        // Hacer movimiento
-        bcopy[move] = turn;
-
-        // Verificar victoria usando tus Reglas (Rules/rules.h)
-        status = board_status(bcopy, size);
-        
-        // board_status devuelve: 0=Nadie, 1=X, 2=O
-        if(status == 1) return 'X';
-        if(status == 2) return 'O';
-
-        // Cambiar turno
-        turn = (turn == 'X') ? 'O' : 'X';
+    // 1. Copia rápida y detección de vacíos
+    for(int i = 0; i < total_squares; i++) {
+        bcopy[i] = board[i];
+        if(bcopy[i] == '+') {
+            empty_squares[count++] = i;
+        }
     }
-    return '+'; // Nunca debería llegar aquí en Hex (no hay empates)
+
+    // Si el tablero ya estaba lleno (raro), verificamos quién ganó
+    if (count == 0) {
+        if (board_test_x(bcopy, size)) return 'X';
+        return 'O';
+    }
+
+    // 2. BARAJAR las posiciones vacías
+    // Esto simula que los turnos ocurren al azar, pero mucho más rápido
+    // que elegir uno por uno y verificar victoria cada vez.
+    shuffle(empty_squares, count);
+
+    // 3. LLENAR el tablero completo
+    char current_turn = player;
+    for(int i = 0; i < count; i++) {
+        bcopy[empty_squares[i]] = current_turn;
+        current_turn = (current_turn == 'X') ? 'O' : 'X';
+    }
+
+    // 4. VERIFICAR VICTORIA UNA SOLA VEZ AL FINAL
+    // En Hex no hay empates. Si X no ganó, forzosamente ganó O.
+    // Esto reduce las llamadas a board_test de ~80 a solo 1 por simulación.
+    if (board_test_x(bcopy, size)) return 'X';
+    else return 'O';
 }
 
 // Ejecuta múltiples simulaciones
 void game_stats(const char* board, int size, char player, int64_t nsim, int64_t* stat) {
-    char bcopy[MAX_BOARD_SIZE];
     int total_squares = size * size;
-
-    // Copia local
-    for(int i = 0; i < total_squares; i++) bcopy[i] = board[i];
-
+    
     // Limpiar estadísticas
     for(int i = 0; i < total_squares; i++) stat[i] = 0;
 
     char winner;
     char other = (player == 'X') ? 'O' : 'X';
-
-    // Bucle principal de simulaciones
-    // NOTA: Aquí es donde irían los Procesos más adelante.
-    // Por ahora, se ejecuta secuencial (lento pero funcional).
     
-    for(int k = 0; k < total_squares; k++) {
-        // Solo evaluamos casillas vacías
-        if(bcopy[k] != '+') continue;
+    // Buffer local para no modificar el original
+    char local_board[MAX_BOARD_SIZE];
+    
+    // Copia inicial rápida usando memcpy (más rápido que bucle for)
+    memcpy(local_board, board, MAX_BOARD_SIZE);
 
-        // Para cada casilla vacía, simulamos 'nsim' juegos
+    for(int k = 0; k < total_squares; k++) {
+        // Solo evaluamos casillas válidas
+        if(local_board[k] != '+') continue;
+
+        // Simulamos 'nsim' juegos para esta casilla
         for(int64_t n = 0; n < nsim; n++) { 
-            bcopy[k] = player; // Hacemos el movimiento candidato
+            // Hacemos el movimiento hipotético
+            local_board[k] = player; 
             
-            // Simulamos el resto del juego
-            winner = game_sim(bcopy, size, other);
+            // Corremos la simulación rápida
+            winner = game_sim(local_board, size, other);
             
-            bcopy[k] = '+'; // Deshacemos el movimiento (backtrack)
+            // Deshacemos el movimiento (Backtracking)
+            local_board[k] = '+'; 
 
             if(winner == player) stat[k]++;
             else stat[k]--;
         }
     }
 }
+
 
 // Elige el mejor movimiento basado en stats
 int game_move(int64_t* stats, const char* board, int size) {
@@ -133,7 +156,7 @@ int game_move(int64_t* stats, const char* board, int size) {
 
 
 int get_ai_move_montecarlo(const Board* board, char player_symbol) {
-    printf("IA (%c) pensando en paralelo...\n", player_symbol);
+    //printf("IA (%c) pensando en paralelo...\n", player_symbol);
     
     // 1. Convertir a formato crudo
     char raw_board[MAX_BOARD_SIZE];
