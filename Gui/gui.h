@@ -18,7 +18,7 @@ void gui_draw(const Board* board);
 // Menús
 int gui_main_menu();
 void gui_config_screen(GameConfig* config);
-int gui_game_over_menu(const char* winner);
+int gui_game_over_menu(const Board* board, const char* winner);
 
 // Juego
 void gui_set_status(const char* status);

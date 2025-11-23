@@ -19,8 +19,8 @@
 
 // JUGADORES
 #define COL_P1          0xFF0000FF // Rojo (X) - Opaque
-// CORRECCIÓN: Azul Puro Opaco (R=00, G=00, B=FF, A=FF)
-#define COL_P2          0x0000FFFF 
+// Ponemos FF al principio para asegurar opacidad (Alpha)
+#define COL_P2          0xFF8B0000
 #define COL_HOVER_GAME  0xDDDDDDFF 
 
 static SDL_Window* window = NULL;
@@ -192,7 +192,7 @@ void gui_config_screen(GameConfig* config) {
     }
 }
 
-void gui_draw(const Board* board) {
+void gui_draw_board_internal(const Board* board) {
     recalculate_layout(board->size);
     SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255);
     SDL_RenderClear(renderer);
@@ -218,9 +218,14 @@ void gui_draw(const Board* board) {
 
         Uint32 color = COL_HEX_FILL;
         char sym = board->squares[i].simbolo;
+        int logic_color = board->squares[i].color; 
 
-        if (sym == 'X') color = COL_P1;
-        else if (sym == 'O') color = COL_P2; // ¡AQUI ESTÁ EL AZUL!
+        if (sym == 'X' || logic_color == 1) {
+            color = COL_P1;
+        }
+        else if (sym == 'O' || sym == '0' || logic_color == 2) {
+            color = COL_P2; 
+        }
         else {
             double d = sqrt(pow(mx-cx, 2) + pow(my-cy, 2));
             if (d < hex_rad * 0.9) color = COL_HOVER_GAME;
@@ -236,7 +241,11 @@ void gui_draw(const Board* board) {
         filledPolygonColor(renderer, vx, vy, 6, color);
         aapolygonColor(renderer, vx, vy, 6, COL_HEX_BORDER);
     }
-    SDL_RenderPresent(renderer);
+}
+
+void gui_draw(const Board* board) {
+    gui_draw_board_internal(board);
+    SDL_RenderPresent(renderer); // Presentamos aquí
 }
 
 int gui_get_human_move(const Board* board) {
@@ -264,35 +273,85 @@ int gui_get_human_move(const Board* board) {
     return -1;
 }
 
-int gui_game_over_menu(const char* winner) {
+int gui_game_over_menu(const Board* board, const char* winner) {
     SDL_Event e;
+    
+    // Posición inicial centrada
+    int win_w, win_h;
+    SDL_GetWindowSize(window, &win_w, &win_h);
+    int menu_w = 340;
+    int menu_h = 240;
+    int menu_x = win_w/2 - menu_w/2;
+    int menu_y = win_h/2 - menu_h/2;
+
+    // Variables para lógica de arrastre
+    int dragging = 0;
+    int drag_offset_x = 0;
+    int drag_offset_y = 0;
+
     while(1) {
-        int cx = win_w/2 - 150;
-        int cy = win_h/2 - 100;
-        boxColor(renderer, cx-20, cy-20, cx+320, cy+220, 0xFFFFFFEE);
-        rectangleColor(renderer, cx-20, cy-20, cx+320, cy+220, 0x000000FF);
+        gui_draw_board_internal(board); 
+
+        boxColor(renderer, menu_x-4, menu_y-4, menu_x+menu_w+4, menu_y+menu_h+4, 0x00000033); // Sombra
+        boxColor(renderer, menu_x, menu_y, menu_x+menu_w, menu_y+menu_h, 0xFFFFFFEE);       // Fondo
+        rectangleColor(renderer, menu_x, menu_y, menu_x+menu_w, menu_y+menu_h, 0x000000FF); // Borde
+
+ 
+        boxColor(renderer, menu_x, menu_y, menu_x+menu_w, menu_y+30, 0xDDDDDDFF); 
+        rectangleColor(renderer, menu_x, menu_y, menu_x+menu_w, menu_y+30, 0x999999FF);
+        stringRGBA(renderer, menu_x + 10, menu_y + 10, "Arrastrame para ver el tablero", 0, 0, 0, 150);
 
         char msg[64];
         sprintf(msg, "GANADOR: %s", winner);
-        stringRGBA(renderer, cx + 100, cy + 20, msg, 0, 0, 0, 255);
+        stringRGBA(renderer, menu_x + 100, menu_y + 50, msg, 0, 0, 0, 255);
 
         int mx, my;
         SDL_GetMouseState(&mx, &my);
 
-        draw_button(cx + 50, cy + 60, 200, 50, "JUGAR DE NUEVO", mx, my, COL_BTN_NORMAL, COL_BTN_TEXT);
-        draw_button(cx + 50, cy + 130, 200, 50, "IR AL MENU", mx, my, COL_BTN_NORMAL, COL_BTN_TEXT);
+        int btn_x = menu_x + 70;
+        int btn1_y = menu_y + 90;
+        int btn2_y = menu_y + 160;
+
+        draw_button(btn_x, btn1_y, 200, 50, "JUGAR DE NUEVO", mx, my, COL_BTN_NORMAL, COL_BTN_TEXT);
+        draw_button(btn_x, btn2_y, 200, 50, "IR AL MENU", mx, my, COL_BTN_NORMAL, COL_BTN_TEXT);
+
 
         SDL_RenderPresent(renderer);
 
+
         while(SDL_PollEvent(&e)) {
             if(e.type == SDL_QUIT) exit(0);
+
+
             if(e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
-                if (mx > cx+50 && mx < cx+250) {
-                    if (my > cy+60 && my < cy+110) return 1; // Reiniciar
-                    if (my > cy+130 && my < cy+180) return 0; // Menu
+
+                if (mx > btn_x && mx < btn_x+200) {
+                    if (my > btn1_y && my < btn1_y+50) return 1; // Reiniciar
+                    if (my > btn2_y && my < btn2_y+50) return 0; // Menu
+                }
+                
+                // Si no es botón, verificar si es dentro de la ventana para arrastrar
+                if (mx > menu_x && mx < menu_x + menu_w && my > menu_y && my < menu_y + menu_h) {
+                    dragging = 1;
+                    drag_offset_x = mx - menu_x;
+                    drag_offset_y = my - menu_y;
+                }
+            }
+
+
+            if(e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
+                dragging = 0;
+            }
+
+
+            if(e.type == SDL_MOUSEMOTION) {
+                if (dragging) {
+                    menu_x = e.motion.x - drag_offset_x;
+                    menu_y = e.motion.y - drag_offset_y;
                 }
             }
         }
         SDL_Delay(16);
     }
 }
+

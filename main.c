@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
                     if (winner) {
                         gui_draw(&board); 
-                        replay = gui_game_over_menu(current->simbolo == 'X' ? "RED" : "BLUE");
+                        replay = gui_game_over_menu(&board, current->simbolo == 'X' ? "RED" : "BLUE");
                         running = 0; 
                     }
                     current = (current->simbolo == p1.simbolo) ? &p2 : &p1;
