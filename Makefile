@@ -40,7 +40,7 @@ all: $(TARGET)
 $(TARGET): $(OBJS)
 	@echo "Enlazando $(TARGET)..."
 	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(OBJS) $(LIBS)
-	@echo "Compilación exitosa Ejecuta con: ./$(TARGET) 7 4 1000"
+#@echo "Compilación exitosa Ejecuta con: ./$(TARGET) 7 4 1000"
 
 # Compilación: Crea los .o a partir de los .c
 %.o: %.c
@@ -53,4 +53,4 @@ clean:
 
 # Regla 'run': Compila y ejecuta un ejemplo rápido
 run: $(TARGET)
-	./$(TARGET) 7 4 1000
+	./$(TARGET) 7 4 

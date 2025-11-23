@@ -13,14 +13,16 @@
 #define W 1
 
 typedef struct {
-    int fda[2];
-    int fdb[2];
+    int fda[2]; // Child -> Parent
+    int fdb[2]; // Parent -> Child
 } pipe_t;
 
 static pipe_t pipels[MAX_PROC];
 static pid_t procls[MAX_PROC];
 static int active_processes = 0;
 static int64_t sims_per_process = 1000;
+
+
 
 void child_loop(int id, int size_tablero_aprox) {
     char board[MAX_BOARD_SIZE];
@@ -53,8 +55,9 @@ void child_loop(int id, int size_tablero_aprox) {
 
 void processes_init(int num_processes, int64_t num_simulations) {
     if (num_processes > MAX_PROC) num_processes = MAX_PROC;
+    if (num_processes < 1) num_processes = 1; // Seguridad
     active_processes = num_processes;
-    sims_per_process = num_simulations;
+    sims_per_process = num_simulations/num_processes;
 
     for(int i = 0; i < active_processes; i++) {
         if(pipe(pipels[i].fda) == -1 || pipe(pipels[i].fdb) == -1) exit(1);

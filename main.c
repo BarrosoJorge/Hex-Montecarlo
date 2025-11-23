@@ -41,9 +41,24 @@ int main(int argc, char** argv) {
     GameConfig config;
     // Valores por defecto
     config.board_size = 7;
-    config.num_procs = 4;
-    config.num_sims = 1000; 
+    config.num_procs = 20;
+    config.num_sims = 1000000; 
     config.player_color = 'X';
+
+    if (argc >= 4) {
+        config.board_size = atoi(argv[1]);
+        config.num_procs = atoi(argv[2]); 
+        config.num_sims = atoi(argv[3]);
+        printf("Configuracion por Argumentos: Tamano=%d, Procesos=%d, Sims=%ld\n", 
+               config.board_size, config.num_procs, config.num_sims);
+    } 
+    else {
+        
+        printf("Argumentos insuficientes. Usando valores por defecto.\n");
+        printf("Configuracion por defecto: Tamano=%d, Procesos=%d, Sims=%ld\n", 
+               config.board_size, config.num_procs, config.num_sims);
+    }
+
 
     gui_init("Hex Game - Proyecto Paralelo");
 
