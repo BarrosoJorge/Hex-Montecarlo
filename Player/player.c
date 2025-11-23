@@ -6,6 +6,7 @@
 #include <string.h>  // Para strcspn (para quitar saltos de línea)
 #include <unistd.h> // Asegúrate de tener este include en player.c para sleep()
 #include <process_manager.h> // Para usar procesos
+#include <sys/time.h>
 
 
 //Revisar
@@ -165,10 +166,20 @@ int get_ai_move_montecarlo(const Board* board, char player_symbol) {
     // Limpiamos el resto del buffer para evitar basura
     for(int i = board->size * board->size; i < MAX_BOARD_SIZE; i++) raw_board[i] = '+';
 
+    // 1. INICIO DEL CRONÓMETRO
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     // 2. DELEGAR AL PROCESS MANAGER
     // Ya no llamamos a game_stats aquí directamente.
     int best_move_index = processes_get_best_move(raw_board, board->size, player_symbol);
 
+    gettimeofday(&end, NULL);
+    double elapsed_time = (end.tv_sec - start.tv_sec) + 
+                          (end.tv_usec - start.tv_usec) / 1000000.0;
+    
+    
+    printf("   TIEMPO DE RESPUESTA IA: %.4f segundos\n", elapsed_time);
     // 3. Feedback
     if (best_move_index != -1) {
         int x, y;
