@@ -27,7 +27,6 @@ static int64_t sims_per_process = 1000;
 void child_loop(int id, int size_tablero_aprox) {
     char board[MAX_BOARD_SIZE];
     int64_t local_stats[MAX_BOARD_SIZE];
-    // ELIMINADA: char player_info; (No se usaba)
 
     close(pipels[id].fda[R]);
     close(pipels[id].fdb[W]);

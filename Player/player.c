@@ -1,18 +1,18 @@
 #include "player.h"
-#include "utils.h"  // Necesitaremos la función de parseo
-#include "rules.h" // Para board_status
-#include "pcg_basic.h" // Para pcg32_boundedrand
+#include "utils.h"  
+#include "rules.h" 
+#include "pcg_basic.h" 
+#include <process_manager.h> 
+
 #include <stdio.h>   // Para printf, fgets
 #include <string.h>  // Para strcspn (para quitar saltos de línea)
-#include <unistd.h> // Asegúrate de tener este include en player.c para sleep()
-#include <process_manager.h> // Para usar procesos
 #include <sys/time.h>
 
 
-//Revisar
 
-// Algoritmo Fisher-Yates para desordenar un array eficientemente
-void shuffle(int *array, int n) {
+
+// Algoritmo Fisher-Yates para desordenar un array 
+static void shuffle(int *array, int n) {
     if (n > 1) {
         for (int i = 0; i < n - 1; i++) {
             // Usamos el generador rápido PCG
@@ -24,8 +24,6 @@ void shuffle(int *array, int n) {
     }
 }
 
-// Función para Input de Consola (Legacy/Backup)
-// Se mantiene por si alguna vez se necesita probar sin GUI
 
 int get_human_move(const Board* board, char player_symbol) {
     char buffer[32]; // Un buffer para leer la entrada del usuario
@@ -60,8 +58,6 @@ int get_human_move(const Board* board, char player_symbol) {
     return indice;
 }
 
-
-// Simula un juego aleatorio (Random Playgout)
 char game_sim(const char* board, int size, char player) {
     char bcopy[MAX_BOARD_SIZE];
     int empty_squares[MAX_BOARD_SIZE];
@@ -76,7 +72,6 @@ char game_sim(const char* board, int size, char player) {
         }
     }
 
-    // Si el tablero ya estaba lleno (raro), verificamos quién ganó
     if (count == 0) {
         if (board_test_x(bcopy, size)) return 'X';
         return 'O';
@@ -96,12 +91,10 @@ char game_sim(const char* board, int size, char player) {
 
     // 4. VERIFICAR VICTORIA UNA SOLA VEZ AL FINAL
     // En Hex no hay empates. Si X no ganó, forzosamente ganó O.
-    // Esto reduce las llamadas a board_test de ~80 a solo 1 por simulación.
     if (board_test_x(bcopy, size)) return 'X';
     else return 'O';
 }
 
-// Ejecuta múltiples simulaciones
 void game_stats(const char* board, int size, char player, int64_t nsim, int64_t* stat) {
     int total_squares = size * size;
     
@@ -139,7 +132,6 @@ void game_stats(const char* board, int size, char player, int64_t nsim, int64_t*
 }
 
 
-// Elige el mejor movimiento basado en stats
 int game_move(int64_t* stats, const char* board, int size) {
     int best = -1;
     int total_squares = size * size;
@@ -171,7 +163,6 @@ int get_ai_move_montecarlo(const Board* board, char player_symbol) {
     gettimeofday(&start, NULL);
 
     // 2. DELEGAR AL PROCESS MANAGER
-    // Ya no llamamos a game_stats aquí directamente.
     int best_move_index = processes_get_best_move(raw_board, board->size, player_symbol);
 
     gettimeofday(&end, NULL);

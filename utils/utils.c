@@ -3,11 +3,15 @@
 #include <ctype.h>   
 #include <stdio.h>   
 
+
 int to_indice(int size, int x, int y){
+    // Validacion de limites para evitar acceder memoria invalida
     if ((x < 0) || (x >= size)) return -1;
     if ((y < 0) || (y >= size)) return -1;
     return size * y + x;
 }
+
+
 
 void to_xy(int size, int indice, int* x, int* y){
     *y = indice/size;
@@ -40,7 +44,6 @@ int parse_and_validate_move(const Board* board, const char* input_str) {
         return -2; // Casilla ocupada
     }
 
-    // ¡Éxito!
     return indice;
 }
 

@@ -5,7 +5,8 @@
 #include "board.h"  
 #include "utils.h"  
 
-// Implementación de tu lógica DFS para 'X' (horizontal)
+#define MAX_STACK_SIZE (MAX_BOARD_SIZE/2)
+
 int  board_test_x(const char* board, int size){
     int pila[MAX_STACK_SIZE];
     char copy[MAX_BOARD_SIZE];
@@ -57,7 +58,7 @@ int  board_test_x(const char* board, int size){
     return 0; // No se encontró camino
 }
 
-// Implementación de tu lógica DFS para 'O' (vertical)
+
 int  board_test_o(const char* board, int size){
     int pila[MAX_STACK_SIZE];
     char copy[MAX_BOARD_SIZE];

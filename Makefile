@@ -53,4 +53,4 @@ clean:
 
 # Regla 'run': Compila y ejecuta un ejemplo rápido
 run: $(TARGET)
-	./$(TARGET) 7 4 
+	./$(TARGET) 7 4 1000

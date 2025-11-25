@@ -4,11 +4,11 @@
 #include "board.h"
 #include "player.h"
 #include "rules.h"
-#include "Processes/process_manager.h"
+#include "process_manager.h"
 #include "Gui/gui.h"
 #include "utils.h"
 
-// --- Funciones de Ayuda ---
+//  Funciones de Ayuda 
 
 void print_help() {
     printf("Uso: ./hex_game <tamano_tablero> <num_procesos> <num_simulaciones>\n");
@@ -41,8 +41,8 @@ int main(int argc, char** argv) {
     GameConfig config;
     // Valores por defecto
     config.board_size = 7;
-    config.num_procs = 20;
-    config.num_sims = 1000000; 
+    config.num_procs = 4;
+    config.num_sims = 1000; 
     config.player_color = 'X';
 
     if (argc >= 4) {
@@ -124,7 +124,6 @@ int main(int argc, char** argv) {
                     }
                     current = (current->simbolo == p1.simbolo) ? &p2 : &p1;
                 }
-                board_destroy(&board);
             }
             processes_cleanup();
         }

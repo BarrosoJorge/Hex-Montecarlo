@@ -2,17 +2,10 @@
 #include "utils.h"
 #include <stdio.h>
 
-Square crear_square(int indice, int size){
+Square crear_square(int indice){
     //Crea un square vacio (simbolo '+' y color 0) 
-
-    //formula para calcular x e y a partir del indice
-    int x, y;
-    to_xy(size, indice, &x, &y);
     Square square;
     square.indice = indice;
-    square.x = x;
-    square.y = y;
-
 
     square.color = 0;
 
@@ -21,18 +14,9 @@ Square crear_square(int indice, int size){
     return square;
 }
 
-void destruir_square(Square* square) {
-    //No hay memoria dinamica por ahora, pero se deja para futuras implementaciones
-    //Si se agrega memoria dinamica, liberar aqui
-    (void)square; // Evitar warning de variable no usada
-}
 
 void imprimir_square(const Square* square){
-    // Implementación:
-    // Imprime el símbolo del square con un formato consistente.
-    // Usamos " %c  " (4 caracteres total) para que coincida con
-    // el espaciado de las cabeceras (ej. " A  ").
-    
+    // Formato: " %c  " (4 caracteres) para alinear con encabezados de consola  
     printf(" %c  ", square->simbolo);
 }
 
